@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const express = require("express");
 const bodyParser = require("body-parser");
 const crypto = require("crypto");
-const cors = require('cors');  // Add this line
+const cors = require('cors');
 
 // MongoDB schemas
 const locationSchema = new mongoose.Schema({
@@ -31,6 +31,7 @@ const leadFieldSchema = new mongoose.Schema({
 const leadSchema = new mongoose.Schema({
   leadId: String,
   created_time: Date,
+  platform: String, // 'facebook' or 'instagram'
   field_data: [leadFieldSchema]
 });
 
@@ -151,26 +152,39 @@ async function fetchPageAndLeads() {
 }
 
 const app = express();
-app.use(cors());  // Add this line
-app.use(bodyParser.json());
+
+// IMPORTANT: Register middleware in correct order
+app.use(cors());
+
+// Capture raw body AND parse JSON
+app.use(bodyParser.json({
+  verify: (req, res, buf, encoding) => {
+    // Store raw body for signature verification
+    req.rawBody = buf.toString('utf8');
+  }
+}));
 
 // Add request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+  console.log('Body:', req.body ? 'Parsed' : 'Empty');
   next();
 });
 
 // Webhook verification endpoint
 app.get('/webhook/facebook-leads', (req, res) => {
+  console.log('📍 GET /webhook/facebook-leads - Verification Request');
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
+  console.log('Verification params:', { mode, token: token ? '***' : 'missing', challenge: challenge ? '***' : 'missing' });
+
   if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
-    console.log('Webhook verified');
+    console.log('✅ Webhook verified');
     res.status(200).send(challenge);
   } else {
-    console.error('Webhook verification failed');
+    console.error('❌ Webhook verification failed');
     res.sendStatus(403);
   }
 });
@@ -178,42 +192,82 @@ app.get('/webhook/facebook-leads', (req, res) => {
 // Webhook POST endpoint for receiving lead notifications
 app.post('/webhook/facebook-leads', async (req, res) => {
   try {
-    console.log('📥 Received webhook POST');
-    console.log('Headers:', req.headers);
-    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('📥 ===================== NEW WEBHOOK REQUEST =====================');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('📝 Headers:', JSON.stringify(req.headers, null, 2));
+    
+    // Defensive check: handle empty body
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.warn('⚠️ Empty request body received');
+      console.log('Raw body:', req.rawBody ? req.rawBody.substring(0, 200) : 'No raw body');
+      return res.sendStatus(200); // Still return 200 to acknowledge
+    }
+
+    console.log('📦 Payload:', JSON.stringify(req.body, null, 2));
 
     // For testing purposes, temporarily bypass signature verification
     if (process.env.NODE_ENV !== 'production') {
-      console.log('⚠️ Bypassing signature verification in development');
+      console.log('⚠️ Development mode: Bypassing signature verification');
       const { entry } = req.body;
       if (!entry || !Array.isArray(entry)) {
-        console.error('❌ Invalid payload format');
+        console.error('❌ Invalid payload format - missing or invalid entry');
         return res.sendStatus(400);
       }
 
-      // Send response immediately to avoid timeout
       res.sendStatus(200);
+      console.log('✅ Webhook response sent: 200');
       
-      // Process leads with field_data
+      // Process leads - await each one
       for (const pageEntry of entry) {
+        console.log(`🔄 Processing page entry for page ID: ${pageEntry.id}`);
         for (const change of pageEntry.changes) {
+          // Handle both old and new webhook formats
+          let leadInfo = null;
+          
           if (change.value.item === 'lead') {
-            console.log(`⏳ Processing lead: ${change.value.lead_id}`);
-            await processNewLead(
-              pageEntry.id,
-              change.value.form_id,
-              change.value.lead_id,
-              change.value.field_data // Pass field_data from payload
-            );
+            // New format from test-all-scenarios
+            leadInfo = {
+              pageId: pageEntry.id,
+              formId: change.value.form_id,
+              leadId: change.value.lead_id,
+              fieldData: change.value.field_data
+            };
+          } else if (change.field === 'leadgen' && change.value.form_id) {
+            // Old format from curl command
+            leadInfo = {
+              pageId: pageEntry.id,
+              formId: change.value.form_id,
+              leadId: change.value.leadgen_id || change.value.lead_id,
+              fieldData: null
+            };
+          }
+
+          if (leadInfo) {
+            console.log(`📋 Lead details:
+              - Form ID: ${leadInfo.formId}
+              - Lead ID: ${leadInfo.leadId}
+              - Page ID: ${leadInfo.pageId}
+            `);
+            try {
+              await processNewLead(
+                leadInfo.pageId,
+                leadInfo.formId,
+                leadInfo.leadId,
+                leadInfo.fieldData
+              );
+            } catch (leadErr) {
+              console.error(`❌ Error processing lead ${leadInfo.leadId}:`, leadErr.message);
+            }
           }
         }
       }
+      console.log('✅ Webhook processing completed');
       return;
     }
 
     // Normal signature verification
     const signature = req.headers['x-hub-signature'];
-    if (!verifyWebhookSignature(req.body, signature)) {
+    if (!verifyWebhookSignature(req.rawBody, signature)) {
       console.error('❌ Signature verification failed');
       return res.sendStatus(403);
     }
@@ -235,7 +289,8 @@ app.post('/webhook/facebook-leads', async (req, res) => {
           processNewLead(
             pageEntry.id,
             change.value.form_id,
-            change.value.lead_id
+            change.value.lead_id,
+            change.value.field_data
           ).catch(err => {
             console.error(`❌ Error processing lead ${change.value.lead_id}:`, err);
           });
@@ -244,13 +299,16 @@ app.post('/webhook/facebook-leads', async (req, res) => {
     }
   } catch (err) {
     console.error('❌ Webhook processing error:', err);
+    console.error('Stack trace:', err.stack);
     if (!res.headersSent) {
       res.sendStatus(500);
     }
+  } finally {
+    console.log('📥 ===================== END WEBHOOK REQUEST =====================\n');
   }
 });
 
-function verifyWebhookSignature(payload, signature) {
+function verifyWebhookSignature(rawBody, signature) {
   try {
     if (!signature) {
       console.error('❌ No signature provided');
@@ -270,7 +328,7 @@ function verifyWebhookSignature(payload, signature) {
     const signatureHash = elements[1];
     const expectedHash = crypto
       .createHmac('sha1', process.env.APP_SECRET)
-      .update(JSON.stringify(payload))
+      .update(rawBody)
       .digest('hex');
     
     console.log('🔐 Signature verification:', {
@@ -288,70 +346,99 @@ function verifyWebhookSignature(payload, signature) {
 
 async function processNewLead(pageId, formId, leadId, payloadFieldData) {
   try {
-    // If we have field_data in payload, use it directly
+    console.log(`\n🔄 Processing lead ${leadId}:`);
+    console.log('- Page ID:', pageId);
+    console.log('- Form ID:', formId);
+    console.log('- Lead ID:', leadId);
+
     const leadData = {
       leadId: leadId,
       created_time: new Date(),
-      field_data: payloadFieldData || [] // Use payload data if available
+      platform: 'facebook',
+      field_data: payloadFieldData || []
     };
 
-    // Only fetch from FB API if we don't have field_data
-    if (!payloadFieldData) {
-      const timeout = 5000;
-      const { accessToken } = await getPageAccessToken();
-      
-      const leadResponse = await Promise.race([
-        axios.get(`https://graph.facebook.com/v20.0/${leadId}`, {
-          params: { access_token: accessToken }
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), timeout)
-        )
-      ]);
-      
-      leadData.created_time = leadResponse.data.created_time;
-      leadData.field_data = leadResponse.data.field_data;
-    }
+    console.log('📝 Lead data to save:', JSON.stringify(leadData, null, 2));
 
-    console.log('📝 Updating lead with data:', JSON.stringify(leadData, null, 2));
+    // STEP 1: Search for Page
+    console.log(`\n📍 STEP 1: Searching for Page ID: ${pageId}`);
+    let page = await Page.findOne({ pageId: pageId });
 
-    // First try to update existing lead
-    const result = await Page.findOneAndUpdate(
-      { 
+    if (!page) {
+      console.log(`ℹ️ Page not found, creating new page`);
+      // Create new page with form and lead
+      page = await Page.create({
         pageId: pageId,
-        'leadForms.formId': formId,
-        'leadForms.leads.leadId': leadId 
-      },
-      { 
-        $set: { 
-          'leadForms.$.leads.$[lead]': leadData,
-          lastUpdated: new Date()
-        }
-      },
-      {
-        arrayFilters: [{ 'lead.leadId': leadId }],
-        new: true
-      }
-    );
-
-    if (!result) {
-      await Page.findOneAndUpdate(
-        { 
-          pageId: pageId,
-          'leadForms.formId': formId 
-        },
-        { 
-          $push: { 'leadForms.$.leads': leadData },
-          lastUpdated: new Date()
-        }
-      );
-      console.log(`✅ New lead ${leadId} added with field data`);
-    } else {
-      console.log(`✅ Existing lead ${leadId} updated with field data`);
+        name: 'Unknown Page',
+        leadForms: [{
+          formId: formId,
+          locale: 'en_US',
+          name: 'Unknown Form',
+          status: 'ACTIVE',
+          leads: [leadData]
+        }],
+        lastUpdated: new Date()
+      });
+      console.log(`✅ New page created with ID: ${page._id}`);
+      console.log(`✅ New form created with ID: ${formId}`);
+      console.log(`✅ New lead created with ID: ${leadId}`);
+      return;
     }
+
+    console.log(`✅ Page found with ID: ${page._id}`);
+
+    // STEP 2: Search for Form in the page
+    console.log(`\n📍 STEP 2: Searching for Form ID: ${formId} in Page`);
+    let formIndex = page.leadForms.findIndex(f => f.formId === formId);
+
+    if (formIndex === -1) {
+      console.log(`ℹ️ Form not found, creating new form`);
+      // Create new form with lead
+      page.leadForms.push({
+        formId: formId,
+        locale: 'en_US',
+        name: 'Unknown Form',
+        status: 'ACTIVE',
+        leads: [leadData]
+      });
+      page.lastUpdated = new Date();
+      await page.save();
+      console.log(`✅ New form created with ID: ${formId}`);
+      console.log(`✅ New lead created with ID: ${leadId}`);
+      return;
+    }
+
+    console.log(`✅ Form found with ID: ${formId}`);
+
+    // STEP 3: Search for Lead in the form
+    console.log(`\n📍 STEP 3: Searching for Lead ID: ${leadId} in Form`);
+    let leadIndex = page.leadForms[formIndex].leads.findIndex(l => l.leadId === leadId);
+
+    if (leadIndex === -1) {
+      console.log(`ℹ️ Lead not found, creating new lead`);
+      // Create new lead
+      page.leadForms[formIndex].leads.push(leadData);
+      page.lastUpdated = new Date();
+      await page.save();
+      console.log(`✅ New lead created with ID: ${leadId}`);
+      console.log('📌 Added lead data:', JSON.stringify(leadData, null, 2));
+      return;
+    }
+
+    console.log(`✅ Lead found with ID: ${leadId}`);
+
+    // STEP 4: Update existing lead
+    console.log(`\n📍 STEP 4: Updating existing Lead ID: ${leadId}`);
+    page.leadForms[formIndex].leads[leadIndex] = leadData;
+    page.lastUpdated = new Date();
+    await page.save();
+    console.log(`✅ Existing lead updated successfully`);
+    console.log('📌 Updated lead data:', JSON.stringify(leadData, null, 2));
 
   } catch (err) {
-    console.error(`❌ Error processing lead ${leadId}:`, err.message);
+    console.error(`❌ Error processing lead ${leadId}:`);
+    console.error('- Error message:', err.message);
+    console.error('- Stack trace:', err.stack);
     throw err;
   }
 }

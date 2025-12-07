@@ -1,0 +1,101 @@
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.login-card {
+  background: white;
+  border-radius: 20px;
+  padding: 50px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.logo {
+  font-size: 60px;
+  margin-bottom: 20px;
+}
+
+.login-header h1 {
+  font-size: 32px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 16px;
+}
+
+.features {
+  margin: 40px 0;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  gap: 15px;
+}
+
+.feature-icon {
+  font-size: 30px;
+  flex-shrink: 0;
+}
+
+.feature h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.feature p {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.facebook-login-btn {
+  width: 100%;
+  background: #1877f2;
+  color: white;
+  border: none;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.3s ease;
+  margin-top: 30px;
+}
+
+.facebook-login-btn:hover {
+  background: #166fe5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 119, 242, 0.4);
+}
+
+.facebook-login-btn svg {
+  flex-shrink: 0;
+}
+
+.privacy-notice {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin-top: 20px;
+  line-height: 1.6;
+}

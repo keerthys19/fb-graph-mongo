@@ -1,0 +1,329 @@
+.onboarding-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.onboarding-card {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 800px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* Progress Steps */
+.progress-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 50px;
+  position: relative;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.step-number {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.step.active .step-number {
+  background: #667eea;
+  color: white;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.step-line {
+  flex: 1;
+  height: 3px;
+  background: #e0e0e0;
+  margin: 0 10px;
+  position: relative;
+  top: -20px;
+}
+
+/* Step Content */
+.step-content {
+  min-height: 400px;
+}
+
+.step-content h2 {
+  font-size: 28px;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.welcome-text {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+.step-description {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.info-box {
+  background: #f5f7fa;
+  padding: 25px;
+  border-radius: 12px;
+  margin: 30px 0;
+}
+
+.info-box h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.info-box ul {
+  list-style: none;
+  padding: 0;
+}
+
+.info-box li {
+  padding: 8px 0;
+  padding-left: 30px;
+  position: relative;
+  color: #555;
+  line-height: 1.6;
+}
+
+.info-box li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+}
+
+/* Pages Grid */
+.pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+  margin: 30px 0;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.page-card {
+  background: #f8f9fa;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.page-card:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.page-card.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.page-card.already-connected {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.page-card.already-connected:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.page-checkbox {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: white;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+.page-card.selected .page-checkbox {
+  background: #667eea;
+  border-color: #667eea;
+}
+
+.page-card.already-connected .page-checkbox {
+  background: #28a745;
+  border-color: #28a745;
+}
+
+.page-info h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 5px;
+  padding-right: 30px;
+}
+
+.page-id {
+  font-size: 12px;
+  color: #999;
+  margin-top: 5px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #28a745;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.no-pages {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #c33;
+}
+
+.connecting-status {
+  text-align: center;
+  color: #667eea;
+  font-weight: 600;
+  margin: 20px 0;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.primary-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 14px 40px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Success Step */
+.step-content.success {
+  text-align: center;
+}
+
+.success-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.success-text {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+.next-steps {
+  text-align: left;
+  background: #f5f7fa;
+  padding: 25px;
+  border-radius: 12px;
+  margin: 30px auto;
+  max-width: 500px;
+}
+
+.next-steps h3 {
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+.next-steps ul {
+  list-style: none;
+  padding: 0;
+}
+
+.next-steps li {
+  padding: 8px 0;
+  padding-left: 30px;
+  position: relative;
+  color: #555;
+}
+
+.next-steps li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: #667eea;
+  font-size: 18px;
+}
